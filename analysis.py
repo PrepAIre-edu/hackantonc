@@ -19,14 +19,14 @@ def hourly_profile(df: pd.DataFrame) -> pd.DataFrame:
 def weekday_profile(df: pd.DataFrame) -> pd.DataFrame:
     """Mean pm25/aqi by weekday: ``weekday`` 0=Mon..6=Sun, ``pm25``, ``aqi``."""
     return (
-        df.groupby(df["time"].dt.weekday)[METRICS].mean().rename_axis("weekday").reset_index()
+        df.groupby(df["time"].dt.day_of_week)[METRICS].mean().rename_axis("weekday").reset_index()
     )
 
 
 def hour_weekday_matrix(df: pd.DataFrame) -> pd.DataFrame:
     """Mean AQI: rows = weekday (0-6), columns = hour (0-23)."""
     matrix = df.pivot_table(
-        index=df["time"].dt.weekday,
+        index=df["time"].dt.day_of_week,
         columns=df["time"].dt.hour,
         values="aqi",
         aggfunc="mean",
