@@ -1,4 +1,5 @@
 """Plotly figures. Every chart takes its colours from ``color_for_aqi``."""
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -12,7 +13,7 @@ NO_DATA_COLOR = "#9aa0a6"
 HISTORY_COLOR = "#4c78a8"
 ACCENT_COLOR = "#e05c5c"
 HISTORY_DAYS_SHOWN = 120
-HEATMAP_AQI_MAX = 200
+HEATMAP_STEPS = 24  # number of colour stops in a heatmap gradient
 COMPARE_DAYS = 30
 SMOOTHING_WEEKS = 4
 WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"]
@@ -47,13 +48,18 @@ def _empty_figure(text: str = EMPTY_TEXT) -> go.Figure:
     return fig.update_layout(**LAYOUT)
 
 
-def _aqi_colorscale() -> list[list]:
-    """Plotly colorscale with hard colour steps at the AQI band bounds."""
-    edges = [0, *[bound for bound in AQI_UPPER_BOUNDS if bound < HEATMAP_AQI_MAX], HEATMAP_AQI_MAX]
-    scale: list[list] = []
-    for color, low, high in zip(AQI_COLORS, edges, edges[1:]):
-        scale += [[low / HEATMAP_AQI_MAX, color], [high / HEATMAP_AQI_MAX, color]]
-    return scale
+def _gradient_color(aqi: float) -> str:
+    """Smooth colour for an AQI value: blends the band colours around the band centres."""
+    centres = [(low + high) / 2 for low, high in zip([0, *AQI_UPPER_BOUNDS], AQI_UPPER_BOUNDS)]
+    centres.append(AQI_UPPER_BOUNDS[-1] + 50)  # open-ended last band
+    channels = [np.interp(aqi, centres, [int(color[i:i + 2], 16) for color in AQI_COLORS]) for i in (1, 3, 5)]
+    return "rgb({:.0f},{:.0f},{:.0f})".format(*channels)
+
+
+def _aqi_colorscale(low: float, high: float) -> list[list]:
+    """Plotly colorscale that maps ``low..high`` to the AQI gradient."""
+    values = np.linspace(low, high, HEATMAP_STEPS)
+    return [[i / (HEATMAP_STEPS - 1), _gradient_color(v)] for i, v in enumerate(values)]
 
 
 def _aqi_heatmap(matrix: pd.DataFrame, x_labels: list[str], y_labels: list[str], title: str,
@@ -61,9 +67,11 @@ def _aqi_heatmap(matrix: pd.DataFrame, x_labels: list[str], y_labels: list[str],
     """Shared AQI heatmap (rows = y, columns = x) with the common colour scale."""
     if matrix.empty or matrix.isna().all().all():
         return _empty_figure()
+    low, high = float(np.nanmin(matrix.to_numpy())), float(np.nanmax(matrix.to_numpy()))
+    high = max(high, low + 1)  # avoid a zero-width colour range
     fig = go.Figure(go.Heatmap(
-        z=matrix.to_numpy(), x=x_labels, y=y_labels, colorscale=_aqi_colorscale(),
-        zmin=0, zmax=HEATMAP_AQI_MAX, colorbar={"title": "AQI"},
+        z=matrix.to_numpy(), x=x_labels, y=y_labels, colorscale=_aqi_colorscale(low, high),
+        zmin=low, zmax=high, colorbar={"title": "AQI"},
         hovertemplate="%{y}, %{x}<br>AQI: %{z:.0f}<extra></extra>",
     ))
     fig.update_yaxes(autorange="reversed")

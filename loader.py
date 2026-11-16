@@ -12,6 +12,10 @@ import pandas as pd
 DATA_DIR = Path(__file__).parent / "data"
 REQUIRED_COLUMNS = {"phenomenon", "value", "logged_at"}
 KEPT_PHENOMENA = ("pm25", "aqi")
+CITY_LABELS = {
+    "dnipro": "Дніпро", "kharkiv": "Харків", "kyiv": "Київ",
+    "lutsk": "Луцьк", "lviv": "Львів", "odessa": "Одеса",
+}
 
 # 500.4 is the top of the EPA scale; larger PM2.5 values (e.g. the 999.9 sensor
 # cap in lviv.csv) are treated as sensor errors, stricter than the plain "> 1000".
@@ -33,6 +37,11 @@ EPA_PM25_BREAKPOINTS = [
 def list_cities() -> list[str]:
     """Return sorted city names, i.e. the stems of ``data/*.csv``."""
     return sorted(path.stem for path in DATA_DIR.glob("*.csv"))
+
+
+def city_label(city: str) -> str:
+    """Ukrainian display name of a city (falls back to the capitalised file name)."""
+    return CITY_LABELS.get(city, city.title())
 
 
 def pm25_to_aqi(pm25: pd.Series) -> pd.Series:

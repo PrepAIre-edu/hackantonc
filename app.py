@@ -9,10 +9,6 @@ import insights
 import loader
 
 DATA_SOURCE_URL = "https://www.saveecobot.com/"
-CITY_LABELS = {
-    "dnipro": "Дніпро", "kharkiv": "Харків", "kyiv": "Київ",
-    "lutsk": "Луцьк", "lviv": "Львів", "odessa": "Одеса",
-}
 DEFAULT_CITY = "kyiv"
 FORECAST_DAYS_RANGE = (3, 14, 7)  # min, max, default
 MIN_DAYS_FOR_ANALYSIS = 7
@@ -51,16 +47,11 @@ def get_decomposition(city: str) -> pd.DataFrame:
     return forecast.decompose_daily(get_city_data(city))
 
 
-def city_label(city: str) -> str:
-    """Ukrainian display name of a city (falls back to the file name)."""
-    return CITY_LABELS.get(city, city.title())
-
-
 def render_sidebar(cities: list[str]) -> tuple[str, int]:
     """Sidebar controls: city and forecast length."""
     st.sidebar.header("Налаштування")
     index = cities.index(DEFAULT_CITY) if DEFAULT_CITY in cities else 0
-    city = st.sidebar.selectbox("Місто", cities, index=index, format_func=city_label)
+    city = st.sidebar.selectbox("Місто", cities, index=index, format_func=loader.city_label)
     low, high, default = FORECAST_DAYS_RANGE
     days = st.sidebar.slider("Днів прогнозу", low, high, default)
     return city, days
@@ -128,7 +119,7 @@ def render_patterns_tab(city: str, df: pd.DataFrame) -> None:
 
 def render_cities_tab(cities: list[str]) -> None:
     """Comparison of all cities."""
-    frames = {city_label(city): get_city_data(city) for city in cities}
+    frames = {loader.city_label(city): get_city_data(city) for city in cities}
     stats = analysis.city_stats(frames)
     st.plotly_chart(charts.compare_cities(frames), width="stretch")
     st.subheader("Порівняння за останній рік")
