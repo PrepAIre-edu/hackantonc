@@ -23,3 +23,23 @@ def test_too_little_data_raises(hourly_df):
 
 def test_backtest_mae_is_small_on_regular_data(hourly_df):
     assert 0 <= forecast.backtest_mae(hourly_df, days=7) < 5
+
+
+def test_rolling_backtest_and_model_errors(hourly_df):
+    backtest = forecast.rolling_backtest(hourly_df, days=7, folds=4)
+    assert list(backtest.columns) == ["date", "actual", *forecast.MODELS]
+    assert len(backtest) == 28
+    errors = forecast.model_errors(backtest)
+    assert set(errors["model"]) == set(forecast.MODELS)
+    assert errors["mae"].is_monotonic_increasing and (errors["mae"] >= 0).all()
+
+
+def test_decompose_daily_weekly_period(hourly_df):
+    parts = forecast.decompose_daily(hourly_df, period=7)
+    assert list(parts.columns) == ["date", "observed", "trend", "seasonal", "resid"]
+    assert parts["trend"].notna().all()
+
+
+def test_decompose_needs_two_periods(hourly_df):
+    with pytest.raises(ValueError):
+        forecast.decompose_daily(hourly_df, period=365)
